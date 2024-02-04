@@ -236,6 +236,7 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
         }
 
         log("Preparing to send packet...")
+        log("Packet: $packet")
 
         packet.calculateSignature()
         val data = packet.serializePacket()
