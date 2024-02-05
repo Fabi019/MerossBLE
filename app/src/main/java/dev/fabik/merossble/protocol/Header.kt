@@ -15,12 +15,12 @@ import org.json.JSONObject
 
 data class Header(
     val from: String = "",
-    var messageId: String = "6ac116ade99eec70a64f55569d7b949f",
+    var messageId: String = "",
     val method: String,
     val namespace: String,
     val payloadVersion: Int = 1,
-    var sign: String = "88430c7ea17efec742978a38d7fa8aa8",
-    var timestamp: Int = 1706818316,
+    var sign: String = "",
+    var timestamp: Int = 0,
     val triggerSrc: String = "AndroidLocal",
 )
 

@@ -19,11 +19,16 @@ import android.os.ParcelUuid
 import android.util.Log
 import dev.fabik.merossble.fragments.LogFragment
 import dev.fabik.merossble.protocol.Packet
+import dev.fabik.merossble.protocol.*
 import java.util.UUID
 import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
-class BleManager(private val context: Context, private val bleCallback: BleCallback, private val logFragment: LogFragment) {
+class BleManager(
+    private val context: Context,
+    private val bleCallback: BleCallback,
+    private val logFragment: LogFragment
+) {
 
     companion object {
         const val TAG = "BleManager"
@@ -46,7 +51,8 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
 
     init {
         // Initialize BluetoothAdapter
-        val bluetoothManager = context.getSystemService(Activity.BLUETOOTH_SERVICE) as BluetoothManager
+        val bluetoothManager =
+            context.getSystemService(Activity.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
 
         // Check if Bluetooth is supported and enabled
@@ -108,21 +114,21 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
                 val packetSize = ((packetSizeHI and 0xFF) shl 8) or packetSizeLO and 0xFF
                 log("Total packet size: $packetSize")
 
-                currentPacket.append(Packet.bytes2ascii(value.sliceArray(4 until value.size)))
+                currentPacket.append(bytes2ascii(value.sliceArray(4 until value.size)))
             } else if (value.size >= 6 && value[value.size - 2] == 0xAA.toByte() && value[value.size - 1] == 0x55.toByte()) {
                 log("Received end of packet")
                 receivingData = false
 
                 val crc = value.sliceArray(value.size - 6 until value.size - 2)
-                log("Checksum (CRC32) is: ${Packet.bytes2hex(crc)} [not validated]")
+                log("Checksum (CRC32) is: ${bytes2hex(crc)} [not validated]")
 
-                currentPacket.append(Packet.bytes2ascii(value.sliceArray(0 until value.size - 6)))
+                currentPacket.append(bytes2ascii(value.sliceArray(0 until value.size - 6)))
 
                 log("Received: $currentPacket")
                 bleCallback.onPacketReceived(currentPacket.toString())
             } else {
                 log("Received data chunk (length: ${value.size})")
-                currentPacket.append(Packet.bytes2ascii(value))
+                currentPacket.append(bytes2ascii(value))
             }
 
             super.onCharacteristicChanged(gatt, characteristic, value)
@@ -166,8 +172,10 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
 
             log("onServicesDiscovered: ${service.uuid} found")
 
-            readCharacteristic = service.getCharacteristic(UUID.fromString(READ_CHARACTERISTIC_UUID))
-            writeCharacteristic = service.getCharacteristic(UUID.fromString(WRITE_CHARACTERISTIC_UUID))
+            readCharacteristic =
+                service.getCharacteristic(UUID.fromString(READ_CHARACTERISTIC_UUID))
+            writeCharacteristic =
+                service.getCharacteristic(UUID.fromString(WRITE_CHARACTERISTIC_UUID))
 
             if (readCharacteristic == null || writeCharacteristic == null) {
                 log("onServicesDiscovered: RX/TX characteristics not found")
@@ -181,7 +189,8 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
                 UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
             )?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val s = gatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                    val s =
+                        gatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
                     log("WriteDescriptor returned $s")
                 } else {
                     it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
@@ -203,8 +212,11 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
 
         // Set up scan filters and settings
         val filters = mutableListOf<ScanFilter>()
-        filters.add(ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(SERVICE_UUID)).build())
-        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+        filters.add(
+            ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(SERVICE_UUID)).build()
+        )
+        val settings =
+            ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
         // Start scanning
         scanner?.startScan(filters, settings, object : ScanCallback() {
@@ -243,7 +255,7 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
         if (data.size >= maxPacketSize) {
             log("Data is too large to send in a single packet, splitting...")
             Executors.newSingleThreadExecutor().execute {
-                Packet.splitIntoChunks(data, maxPacketSize).forEach {
+                splitIntoChunks(data, maxPacketSize).forEach {
                     writeData(it)
                     Thread.sleep(100)
                 }
@@ -258,7 +270,11 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             writeCharacteristic?.let {
-                bluetoothGatt?.writeCharacteristic(it, data, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+                bluetoothGatt?.writeCharacteristic(
+                    it,
+                    data,
+                    BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                )
             }
         } else {
             writeCharacteristic?.let {

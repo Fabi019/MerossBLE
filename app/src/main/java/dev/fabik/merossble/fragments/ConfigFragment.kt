@@ -15,6 +15,8 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import dev.fabik.merossble.R
 import dev.fabik.merossble.protocol.Packet
+import dev.fabik.merossble.protocol.bytes2hex
+import dev.fabik.merossble.protocol.calculateWifiXPassword
 import dev.fabik.merossble.protocol.payloads.DeviceInfo
 import dev.fabik.merossble.protocol.payloads.Gateway
 import dev.fabik.merossble.protocol.payloads.KeyConfig
@@ -65,12 +67,10 @@ class ConfigFragment(
         }
 
         wifiConfirmButton.setOnClickListener {
-            Log.d("ConfigFragment", "wifi: $selectedWifi, password: ${passwordInput.text}")
             selectedWifi?.let { wifi ->
                 val password = passwordInput.text.toString()
                 deviceInfo?.let {
-                    val hashed = Packet.calculateWifiXPassword(password, it.type, it.uuid, it.mac)
-                    Log.d("ConfigFragment", "hashed: $hashed")
+                    val hashed = calculateWifiXPassword(password, it.type, it.uuid, it.mac)
                     onConfirmWifi(wifi, hashed)
                 }
             }
@@ -137,7 +137,7 @@ class ConfigFragment(
         md5.update(mac.toByteArray() + key.toByteArray())
         val digest = md5.digest()
 
-        passwordField.text = "${userId}_${digest.joinToString("") { "%02x".format(it) }}"
+        passwordField.text = "${userId}_${bytes2hex(digest)}"
     }
 
     fun setWifiNetworks(wifiNetworks: List<Wifi>) {

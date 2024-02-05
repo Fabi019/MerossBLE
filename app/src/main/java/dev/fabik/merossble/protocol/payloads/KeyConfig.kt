@@ -25,24 +25,15 @@ data class Gateway(
     val host: String
 )
 
-fun KeyConfig.toJSONObject(): JSONObject {
-    val jsonObject = JSONObject()
-    jsonObject.put("userId", userId)
-
-/*    val md5 = MessageDigest.getInstance("MD5")
-    md5.update(key.toByteArray())
-    val key = md5.digest().joinToString("") { "%02x".format(it) }*/
-    jsonObject.put("key", key)
-
-    jsonObject.put("gateway", gateway.toJSONObject())
-    return jsonObject
+fun KeyConfig.toJSONObject() = JSONObject().apply {
+    put("userId", userId)
+    put("key", key)
+    put("gateway", gateway.toJSONObject())
 }
 
-fun Gateway.toJSONObject(): JSONObject {
-    val jsonObject = JSONObject()
-    jsonObject.put("secondHost", secondHost)
-    jsonObject.put("secondPort", secondPort)
-    jsonObject.put("port", port)
-    jsonObject.put("host", host)
-    return jsonObject
+fun Gateway.toJSONObject() = JSONObject().apply {
+    put("secondHost", secondHost)
+    put("secondPort", secondPort)
+    put("port", port)
+    put("host", host)
 }

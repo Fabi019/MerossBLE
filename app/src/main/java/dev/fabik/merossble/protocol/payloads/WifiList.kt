@@ -32,13 +32,11 @@ fun JSONObject.toWifi() = Wifi(
     cipher = getInt("cipher")
 )
 
-fun Wifi.toJSONObject(password: String): JSONObject {
-    val jsonObject = JSONObject()
-    jsonObject.put("cipher", cipher)
-    jsonObject.put("password", password)
-    jsonObject.put("encryption", encryption)
-    jsonObject.put("bssid", bssid)
-    jsonObject.put("channel", channel)
-    jsonObject.put("ssid", Base64.encodeToString(ssid.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
-    return jsonObject
+fun Wifi.toJSONObject(password: String) = JSONObject().apply {
+    put("cipher", cipher)
+    put("password", password)
+    put("encryption", encryption)
+    put("bssid", bssid)
+    put("channel", channel)
+    put("ssid", Base64.encodeToString(ssid.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
 }
