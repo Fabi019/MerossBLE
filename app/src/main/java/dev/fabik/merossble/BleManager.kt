@@ -45,9 +45,9 @@ class BleManager(
     private var writeCharacteristic: BluetoothGattCharacteristic? = null
 
     private var maxPacketSize = 20
-    private var receivingData = false
 
-    private lateinit var currentPacket: StringBuffer
+    private var writeIndex = 0
+    private lateinit var receiveBuffer: ByteArray
 
     init {
         // Initialize BluetoothAdapter
@@ -105,30 +105,33 @@ class BleManager(
         ) {
             if (value.size >= 4 && value[0] == 0x55.toByte() && value[1] == 0xAA.toByte()) {
                 log("Received start of packet...")
-                currentPacket = StringBuffer()
-                receivingData = true
 
                 val packetSizeHI = value[2].toInt()
                 val packetSizeLO = value[3].toInt()
 
-                val packetSize = ((packetSizeHI and 0xFF) shl 8) or packetSizeLO and 0xFF
-                log("Total packet size: $packetSize")
+                val packetSize = ((packetSizeHI and 0xFF) shl 8) + (packetSizeLO and 0xFF)
+                log("Total packet size: $packetSize (${bytes2hex(value.sliceArray(2 until 4))})")
 
-                currentPacket.append(bytes2ascii(value.sliceArray(4 until value.size)))
-            } else if (value.size >= 6 && value[value.size - 2] == 0xAA.toByte() && value[value.size - 1] == 0x55.toByte()) {
+                receiveBuffer = ByteArray(packetSize + 6)
+                System.arraycopy(value, 0, receiveBuffer, 0, value.size - 4) // strip length and magic
+                writeIndex = value.size - 4
+            } else if (value.size >= 2 && value[value.size - 2] == 0xAA.toByte() && value[value.size - 1] == 0x55.toByte()) {
                 log("Received end of packet")
-                receivingData = false
 
-                val crc = value.sliceArray(value.size - 6 until value.size - 2)
+                System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size - 2)
+                writeIndex = 0
+
+                val crc = receiveBuffer.sliceArray(receiveBuffer.size - 6 until receiveBuffer.size - 2)
                 log("Checksum (CRC32) is: ${bytes2hex(crc)} [not validated]")
 
-                currentPacket.append(bytes2ascii(value.sliceArray(0 until value.size - 6)))
-
-                log("Received: $currentPacket")
-                bleCallback.onPacketReceived(currentPacket.toString())
+                val json = bytes2ascii(receiveBuffer.sliceArray(4 until receiveBuffer.size - 6))
+                log("Received: $json")
+                bleCallback.onPacketReceived(json)
             } else {
                 log("Received data chunk (length: ${value.size})")
-                currentPacket.append(bytes2ascii(value))
+
+                System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size)
+                writeIndex += value.size
             }
 
             super.onCharacteristicChanged(gatt, characteristic, value)
@@ -242,7 +245,7 @@ class BleManager(
     }
 
     fun sendPacket(packet: Packet) {
-        if (receivingData) {
+        if (writeIndex > 0) {
             log("Cannot send packet while receiving data!")
             return
         }
@@ -290,7 +293,9 @@ class BleManager(
         bluetoothGatt?.close()
         bluetoothGatt = null
         bluetoothDevice = null
-        receivingData = false
+        writeCharacteristic = null
+        readCharacteristic = null
+        writeIndex = 0
         bleCallback.onNewDevice(null)
     }
 
