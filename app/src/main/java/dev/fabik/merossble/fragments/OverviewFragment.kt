@@ -3,23 +3,20 @@ package dev.fabik.merossble.fragments
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.os.Bundle
-import android.util.Base64
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.google.android.material.progressindicator.CircularProgressIndicator
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.fabik.merossble.BleCallback
 import dev.fabik.merossble.BleManager
 import dev.fabik.merossble.R
 import dev.fabik.merossble.protocol.Header
 import dev.fabik.merossble.protocol.Packet
 import dev.fabik.merossble.protocol.payloads.DeviceInfo
-import dev.fabik.merossble.protocol.payloads.RULES
 import dev.fabik.merossble.protocol.payloads.Time
 import dev.fabik.merossble.protocol.payloads.Wifi
 import dev.fabik.merossble.protocol.payloads.toDeviceInfo
@@ -37,6 +34,8 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
 
     private var deviceInfo: DeviceInfo? = null
     private var wifiNetworks: List<Wifi>? = null
+
+    private var waitingDialog: AlertDialog? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -61,8 +60,6 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
 
     private var bleCallback = object : BleCallback {
         override fun onPacketReceived(packetJson: String) {
-            logFragment.log("Packet received: $packetJson")
-
             val json = JSONObject(packetJson)
             val header = json.getJSONObject("header").toHeader()
 
@@ -91,6 +88,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                     }
                 }
             }
+
+            waitingDialog?.dismiss()
+            waitingDialog = null
         }
 
         override fun onNewDevice(device: BluetoothDevice?) {
@@ -104,6 +104,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                     .replace(
                         R.id.deviceInfoCard, DeviceInfoFragment(
                             onDataLoad = {
+                                showWaitingDialog()
+
+                                logFragment.log("Requesting device info")
                                 bleManager.sendPacket(
                                     Packet(
                                         Header(
@@ -128,6 +131,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                         .replace(
                             R.id.wifiConfigCard, ConfigFragment(
                                 onRefresh = {
+                                    showWaitingDialog()
+
+                                    logFragment.log("Requesting wifi list")
                                     bleManager.sendPacket(
                                         Packet(
                                             Header(
@@ -138,6 +144,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                                     )
                                 },
                                 onUpdateTimestamp = { timezone ->
+                                    showWaitingDialog()
+
+                                    logFragment.log("Setting time to: $timezone")
                                     val time = Time(timezone, System.currentTimeMillis() / 1000)
                                     bleManager.sendPacket(
                                         Packet(
@@ -153,8 +162,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
 
                                 },
                                 onConfirmMqtt = { keyConfig ->
-                                    logFragment.log("Configuring: $keyConfig")
+                                    showWaitingDialog()
 
+                                    logFragment.log("Configuring: $keyConfig")
                                     bleManager.sendPacket(
                                         Packet(
                                             Header(
@@ -168,8 +178,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                                     )
                                 },
                                 onConfirmWifi = { wifi, password ->
-                                    logFragment.log("Selected wifi: $wifi, password: ***")
+                                    showWaitingDialog()
 
+                                    logFragment.log("Selected wifi: $wifi, password: ***")
                                     bleManager.sendPacket(
                                         Packet(
                                             Header(
@@ -191,6 +202,18 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                 }
             }
         }
+    }
+
+    fun showWaitingDialog() {
+        waitingDialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Waiting...")
+            .setView(R.layout.dialog_waiting)
+            .setCancelable(false)
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                waitingDialog = null
+            }
+            .show()
     }
 
     fun disconnect(client: Boolean = false) {

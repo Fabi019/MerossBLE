@@ -99,6 +99,12 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="The follwing generated password will be used by the device to authenticate in the mqtt server. Ingore if you are allowing anonymous access."
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

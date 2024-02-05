@@ -50,7 +50,8 @@ class Packet(
 
         fun bytes2hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(it) }
 
-        fun bytes2ascii(bytes: ByteArray) = bytes.joinToString("") { it.toInt().toChar().toString() }
+        fun bytes2ascii(bytes: ByteArray) =
+            bytes.joinToString("") { it.toInt().toChar().toString() }
 
         fun splitIntoChunks(data: ByteArray, maxSize: Int): List<ByteArray> {
             val chunks = mutableListOf<ByteArray>()
@@ -65,7 +66,12 @@ class Packet(
             return chunks
         }
 
-        fun calculateWifiXPassword(password: String, type: String, uuid: String, macAddress: String): String {
+        fun calculateWifiXPassword(
+            password: String,
+            type: String,
+            uuid: String,
+            macAddress: String
+        ): String {
             val md5 = MessageDigest.getInstance("MD5")
             md5.update((type + uuid + macAddress).toByteArray())
             val key = bytes2hex(md5.digest())
@@ -96,13 +102,7 @@ class Packet(
     }
 
     fun serializePacket(): ByteArray {
-        val packet = JSONObject()
-        packet.put("header", header.toJSONObject())
-        packet.put("payload", payload)
-        val json = packet.toString()
-
-        Log.d("MerossBLE", "Packet: $json")
-
+        val json = toString()
         val data = ByteArray(json.length + 10)
 
         insertAt(data, byteArrayOf(0x55.toByte(), 0xAA.toByte()), 0)
@@ -115,5 +115,10 @@ class Packet(
 
         return data
     }
+
+    override fun toString() = JSONObject().apply {
+        put("header", header.toJSONObject())
+        put("payload", payload)
+    }.toString()
 
 }

@@ -18,9 +18,9 @@ import android.os.Build
 import android.os.ParcelUuid
 import android.util.Log
 import dev.fabik.merossble.fragments.LogFragment
-import dev.fabik.merossble.protocol.Header
 import dev.fabik.merossble.protocol.Packet
 import java.util.UUID
+import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
 class BleManager(private val context: Context, private val bleCallback: BleCallback, private val logFragment: LogFragment) {
@@ -164,7 +164,7 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
                 return
             }
 
-            log("onServicesDiscovered: $service found")
+            log("onServicesDiscovered: ${service.uuid} found")
 
             readCharacteristic = service.getCharacteristic(UUID.fromString(READ_CHARACTERISTIC_UUID))
             writeCharacteristic = service.getCharacteristic(UUID.fromString(WRITE_CHARACTERISTIC_UUID))
@@ -235,15 +235,19 @@ class BleManager(private val context: Context, private val bleCallback: BleCallb
             return
         }
 
-        log("Preparing to send packet...")
-        log("Packet: $packet")
+        log("Preparing to send packet: $packet")
 
         packet.calculateSignature()
         val data = packet.serializePacket()
 
         if (data.size >= maxPacketSize) {
             log("Data is too large to send in a single packet, splitting...")
-            Packet.splitIntoChunks(data, maxPacketSize).forEach(::writeData)
+            Executors.newSingleThreadExecutor().execute {
+                Packet.splitIntoChunks(data, maxPacketSize).forEach {
+                    writeData(it)
+                    Thread.sleep(100)
+                }
+            }
         } else {
             writeData(data)
         }
