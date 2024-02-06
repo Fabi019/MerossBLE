@@ -1,26 +1,11 @@
 package dev.fabik.merossble.protocol
 
 import org.json.JSONObject
-import java.security.MessageDigest
-import java.util.UUID
 
 class Packet(
-    private val header: Header,
+    private var header: Header,
     private val payload: JSONObject = JSONObject(),
-    private val key: String = ""
 ) {
-
-    fun calculateSignature() {
-        val md5 = MessageDigest.getInstance("MD5")
-
-        val messageId = bytes2hex(md5.digest(UUID.randomUUID().toString().toByteArray()))
-        val timestamp = (System.currentTimeMillis() / 1000).toInt()
-        val signature = bytes2hex(md5.digest((messageId + key + timestamp).toByteArray()))
-
-        header.messageId = messageId
-        header.timestamp = timestamp
-        header.sign = signature
-    }
 
     fun serializePacket(): ByteArray {
         val json = toString()

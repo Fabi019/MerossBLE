@@ -252,7 +252,6 @@ class BleManager(
 
         log("Preparing to send packet: $packet")
 
-        packet.calculateSignature()
         val data = packet.serializePacket()
 
         if (data.size >= maxPacketSize) {

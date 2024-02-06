@@ -1,6 +1,9 @@
 package dev.fabik.merossble.protocol
 
 import org.json.JSONObject
+import java.security.MessageDigest
+import java.util.UUID
+import kotlin.math.sign
 
 //   "header": {
 //    "from": "",
@@ -13,16 +16,29 @@ import org.json.JSONObject
 //    "triggerSrc": "AndroidLocal"
 //   },
 
-data class Header(
+class Header(
     val from: String = "",
-    var messageId: String = "",
     val method: String,
     val namespace: String,
     val payloadVersion: Int = 1,
-    var sign: String = "",
-    var timestamp: Int = 0,
     val triggerSrc: String = "AndroidLocal",
-)
+) {
+    var messageId: String
+    var sign: String
+    var timestamp: Int
+
+    companion object {
+        const val KEY = "key"
+    }
+
+    init {
+        val md5 = MessageDigest.getInstance("MD5")
+        messageId = bytes2hex(md5.digest(UUID.randomUUID().toString().toByteArray()))
+        timestamp = (System.currentTimeMillis() / 1000).toInt()
+        sign = bytes2hex(md5.digest((messageId + KEY + timestamp).toByteArray()))
+    }
+
+}
 
 fun Header.toJSONObject(): JSONObject {
     val jsonObject = JSONObject()
@@ -39,11 +55,12 @@ fun Header.toJSONObject(): JSONObject {
 
 fun JSONObject.toHeader() = Header(
     from = getString("from"),
-    messageId = getString("messageId"),
     method = getString("method"),
     namespace = getString("namespace"),
     payloadVersion = getInt("payloadVersion"),
-    sign = getString("sign"),
-    timestamp = getInt("timestamp"),
     triggerSrc = getString("triggerSrc")
-)
+).apply {
+    messageId = getString("messageId")
+    sign = getString("sign")
+    timestamp = getInt("timestamp")
+}
