@@ -8,5 +8,5 @@
         android:title="Disconnect"
         app:showAsAction="ifRoom" />
 
-    <item android:title="Settings" />
+    <!--<item android:title="Settings" />-->
 </menu>
