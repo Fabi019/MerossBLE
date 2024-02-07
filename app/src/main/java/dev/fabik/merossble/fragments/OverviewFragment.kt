@@ -1,6 +1,5 @@
 package dev.fabik.merossble.fragments
 
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,33 +8,33 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import dev.fabik.merossble.BleCallback
-import dev.fabik.merossble.BleManager
 import dev.fabik.merossble.R
+import dev.fabik.merossble.model.ConfigViewModel
+import dev.fabik.merossble.model.MainViewModel
 import dev.fabik.merossble.protocol.Header
 import dev.fabik.merossble.protocol.Packet
-import dev.fabik.merossble.protocol.payloads.DeviceInfo
 import dev.fabik.merossble.protocol.payloads.Time
-import dev.fabik.merossble.protocol.payloads.Wifi
 import dev.fabik.merossble.protocol.payloads.toDeviceInfo
 import dev.fabik.merossble.protocol.payloads.toJSONObject
 import dev.fabik.merossble.protocol.payloads.toWifiList
 import dev.fabik.merossble.protocol.toHeader
 import org.json.JSONObject
 
-class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
-
-    private lateinit var bleManager: BleManager
+class OverviewFragment : Fragment() {
 
     private lateinit var noDeviceText: TextView
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
 
-    private var deviceInfo: DeviceInfo? = null
-    private var wifiNetworks: List<Wifi>? = null
+    private var logFragment: LogFragment? = null
 
     private var waitingDialog: AlertDialog? = null
+
+    private val viewModel: ConfigViewModel by viewModels()
+    private val mainViewModel: MainViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -49,23 +48,97 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
         swipeRefreshLayout = view.findViewById(R.id.swiperefresh)
         noDeviceText = view.findViewById(R.id.noDevice)
 
-        bleManager = BleManager(requireActivity(), bleCallback, logFragment)
-
         swipeRefreshLayout.setOnRefreshListener {
-            bleManager.scan()
+            log("Requested refresh")
+            mainViewModel.bleManager?.scan()
         }
 
-        super.onViewCreated(view, savedInstanceState)
-    }
+        if (viewModel.deviceInfo.value != null) {
+            noDeviceText.visibility = View.GONE
+        }
 
-    private var bleCallback = object : BleCallback {
-        override fun onPacketReceived(packetJson: String) {
+        viewModel.onRefresh = {
+            showWaitingDialog()
+
+            log("Requesting wifi list")
+            mainViewModel.bleManager?.sendPacket(
+                Packet(Header(method = "GET", namespace = "Appliance.Config.WifiList"))
+            )
+        }
+
+        viewModel.onUpdateTimestamp = { timezone ->
+            showWaitingDialog()
+
+            log("Setting time to: $timezone")
+            val time = Time(timezone, System.currentTimeMillis() / 1000)
+            mainViewModel.bleManager?.sendPacket(
+                Packet(
+                    Header(method = "SET", namespace = "Appliance.System.Time"),
+                    payload = JSONObject().apply {
+                        put("time", time.toJSONObject())
+                    }
+                )
+            )
+
+        }
+
+        viewModel.onConfirmMqtt = { keyConfig ->
+            showWaitingDialog()
+
+            log("Configuring: $keyConfig")
+            mainViewModel.bleManager?.sendPacket(
+                Packet(
+                    Header(method = "SET", namespace = "Appliance.Config.Key"),
+                    payload = JSONObject().apply {
+                        put("key", keyConfig.toJSONObject())
+                    }
+                )
+            )
+        }
+
+        viewModel.onConfirmWifi = { wifi, password ->
+            showWaitingDialog()
+
+            log("Selected wifi: $wifi, password: ***")
+            mainViewModel.bleManager?.sendPacket(
+                Packet(
+                    Header(method = "SET", namespace = "Appliance.Config.WifiX"),
+                    payload = JSONObject().apply {
+                        put("wifi", wifi.toJSONObject(password))
+                    }
+                )
+            )
+        }
+
+        viewModel.onDataLoad = {
+            showWaitingDialog()
+
+            log("Requesting device info")
+            mainViewModel.bleManager?.sendPacket(
+                Packet(Header(method = "GET", namespace = "Appliance.System.All"))
+            )
+        }
+
+        mainViewModel.connectionState.observe(viewLifecycleOwner) { state ->
+            if (state == 99) {
+                swipeRefreshLayout.isRefreshing = false
+                childFragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .replace(R.id.wifiConfigCard, ConfigFragment())
+                    .commit()
+            } else if (state == BluetoothGatt.STATE_DISCONNECTED) {
+                disconnect()
+            }
+        }
+
+        mainViewModel.packetData.observe(viewLifecycleOwner) { packetJson ->
             val json = JSONObject(packetJson)
             val header = json.getJSONObject("header").toHeader()
+            val payload = json.getJSONObject("payload")
 
             if (header.namespace == "Appliance.System.All") {
-                val payload = json.getJSONObject("payload")
-                deviceInfo = payload.toDeviceInfo().also { deviceInfo ->
+                viewModel.deviceInfo.postValue(payload.toDeviceInfo())
+                /*viewModel.deviceInfo = payload.toDeviceInfo().also { deviceInfo ->
                     childFragmentManager.findFragmentById(R.id.deviceInfoCard)?.let {
                         requireActivity().runOnUiThread {
                             (it as DeviceInfoFragment).setDeviceInfo(deviceInfo)
@@ -77,134 +150,38 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
                             (it as ConfigFragment).setDeviceInfo(deviceInfo)
                         }
                     }
-                }
+                }*/
             } else if (header.namespace == "Appliance.Config.WifiList") {
-                val payload = json.getJSONObject("payload")
-                wifiNetworks = payload.toWifiList().also { wifiNetworks ->
+                /*viewModel.wifiNetworks = payload.toWifiList().also { wifiNetworks ->
                     childFragmentManager.findFragmentById(R.id.wifiConfigCard)?.let {
                         requireActivity().runOnUiThread {
                             (it as ConfigFragment).setWifiNetworks(wifiNetworks)
                         }
                     }
-                }
+                }*/
+
+                viewModel.wifiNetworks.postValue(payload.toWifiList())
             }
 
             waitingDialog?.dismiss()
             waitingDialog = null
         }
 
-        override fun onNewDevice(device: BluetoothDevice?) {
-            if (device == null) return
+        mainViewModel.newDevice.observe(viewLifecycleOwner) { device ->
+            if (device == null) return@observe
 
-            requireActivity().runOnUiThread {
-                noDeviceText.visibility = View.GONE
+            noDeviceText.visibility = View.GONE
 
-                childFragmentManager.beginTransaction()
-                    .setReorderingAllowed(true)
-                    .replace(
-                        R.id.deviceInfoCard, DeviceInfoFragment(
-                            onDataLoad = {
-                                showWaitingDialog()
-
-                                logFragment.log("Requesting device info")
-                                bleManager.sendPacket(
-                                    Packet(
-                                        Header(
-                                            method = "GET",
-                                            namespace = "Appliance.System.All"
-                                        ),
-                                    )
-                                )
-                            })
-                    )
-                    .commit()
-            }
+            childFragmentManager.beginTransaction()
+                .setReorderingAllowed(true)
+                .replace(R.id.deviceInfoCard, DeviceInfoFragment())
+                .commit()
         }
 
-        override fun onConnectionStateChanged(state: Int) {
-            if (state == 99) {
-                requireActivity().runOnUiThread {
-                    swipeRefreshLayout.isRefreshing = false
-
-                    childFragmentManager.beginTransaction()
-                        .setReorderingAllowed(true)
-                        .replace(
-                            R.id.wifiConfigCard, ConfigFragment(
-                                onRefresh = {
-                                    showWaitingDialog()
-
-                                    logFragment.log("Requesting wifi list")
-                                    bleManager.sendPacket(
-                                        Packet(
-                                            Header(
-                                                method = "GET",
-                                                namespace = "Appliance.Config.WifiList"
-                                            )
-                                        )
-                                    )
-                                },
-                                onUpdateTimestamp = { timezone ->
-                                    showWaitingDialog()
-
-                                    logFragment.log("Setting time to: $timezone")
-                                    val time = Time(timezone, System.currentTimeMillis() / 1000)
-                                    bleManager.sendPacket(
-                                        Packet(
-                                            Header(
-                                                method = "SET",
-                                                namespace = "Appliance.System.Time"
-                                            ),
-                                            payload = JSONObject().apply {
-                                                put("time", time.toJSONObject())
-                                            }
-                                        )
-                                    )
-
-                                },
-                                onConfirmMqtt = { keyConfig ->
-                                    showWaitingDialog()
-
-                                    logFragment.log("Configuring: $keyConfig")
-                                    bleManager.sendPacket(
-                                        Packet(
-                                            Header(
-                                                method = "SET",
-                                                namespace = "Appliance.Config.Key"
-                                            ),
-                                            payload = JSONObject().apply {
-                                                put("key", keyConfig.toJSONObject())
-                                            }
-                                        )
-                                    )
-                                },
-                                onConfirmWifi = { wifi, password ->
-                                    showWaitingDialog()
-
-                                    logFragment.log("Selected wifi: $wifi, password: ***")
-                                    bleManager.sendPacket(
-                                        Packet(
-                                            Header(
-                                                method = "SET",
-                                                namespace = "Appliance.Config.WifiX"
-                                            ),
-                                            payload = JSONObject().apply {
-                                                put("wifi", wifi.toJSONObject(password))
-                                            }
-                                        )
-                                    )
-                                })
-                        )
-                        .commit()
-                }
-            } else if (state == BluetoothGatt.STATE_DISCONNECTED) {
-                requireActivity().runOnUiThread {
-                    disconnect()
-                }
-            }
-        }
+        super.onViewCreated(view, savedInstanceState)
     }
 
-    fun showWaitingDialog() {
+    private fun showWaitingDialog() {
         waitingDialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle("Waiting...")
             .setView(R.layout.dialog_waiting)
@@ -216,13 +193,9 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
             .show()
     }
 
-    fun disconnect(client: Boolean = false) {
-        if (client) {
-            bleManager.disconnect()
-        }
-
-        deviceInfo = null
-        wifiNetworks = null
+    private fun disconnect() {
+        viewModel.deviceInfo.postValue(null)
+        viewModel.wifiNetworks.postValue(emptyList())
         swipeRefreshLayout.isRefreshing = false
         noDeviceText.visibility = View.VISIBLE
 
@@ -235,6 +208,17 @@ class OverviewFragment(private val logFragment: LogFragment) : Fragment() {
             transaction.remove(it)
         }
         transaction.commit()
+    }
+
+    private fun log(message: String) {
+        if (logFragment == null) {
+            parentFragmentManager.findFragmentByTag("f1")?.let {
+                logFragment = it as LogFragment
+                logFragment?.log(message)
+            }
+        } else {
+            logFragment?.log(message)
+        }
     }
 
 }

@@ -11,9 +11,12 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import dev.fabik.merossble.R
+import dev.fabik.merossble.model.ConfigViewModel
 import dev.fabik.merossble.protocol.Packet
 import dev.fabik.merossble.protocol.bytes2hex
 import dev.fabik.merossble.protocol.calculateWifiXPassword
@@ -24,14 +27,12 @@ import dev.fabik.merossble.protocol.payloads.Wifi
 import java.security.MessageDigest
 
 class ConfigFragment(
-    private var wifiNetworks: List<Wifi> = emptyList(),
+/*    private var wifiNetworks: List<Wifi> = emptyList(),
     private val onRefresh: () -> Unit,
     private val onUpdateTimestamp: (String) -> Unit, // timezone
     private val onConfirmMqtt: (KeyConfig) -> Unit, // mqtt server, port, userId, key
-    private val onConfirmWifi: (Wifi, String) -> Unit // ssid, password
+    private val onConfirmWifi: (Wifi, String) -> Unit // ssid, password*/
 ) : Fragment() {
-
-    private var deviceInfo: DeviceInfo? = null
 
     private lateinit var wifiSelection: MaterialAutoCompleteTextView
     private lateinit var passwordInput: TextInputEditText
@@ -45,6 +46,8 @@ class ConfigFragment(
     private lateinit var passwordField: TextView
     private lateinit var mqttConfirmButton: Button
 
+    private val viewModel: ConfigViewModel by viewModels({requireParentFragment()})
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -55,7 +58,10 @@ class ConfigFragment(
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         wifiSelection = view.findViewById(R.id.wifiSelection)
-        setWifiNetworks(wifiNetworks)
+
+        viewModel.wifiNetworks.observe(viewLifecycleOwner) {
+            setWifiNetworks(it)
+        }
 
         passwordInput = view.findViewById(R.id.wifiPassword)
         searchWifiButton = view.findViewById(R.id.searchWifiButton)
@@ -63,15 +69,15 @@ class ConfigFragment(
 
         var selectedWifi: Wifi? = null
         wifiSelection.setOnItemClickListener { _, _, position, _ ->
-            selectedWifi = wifiNetworks[position]
+            selectedWifi = viewModel.wifiNetworks.value?.get(position)
         }
 
         wifiConfirmButton.setOnClickListener {
             selectedWifi?.let { wifi ->
                 val password = passwordInput.text.toString()
-                deviceInfo?.let {
+                viewModel.deviceInfo.value?.let {
                     val hashed = calculateWifiXPassword(password, it.type, it.uuid, it.mac)
-                    onConfirmWifi(wifi, hashed)
+                    viewModel.onConfirmWifi?.invoke(wifi, hashed)
                 }
             }
         }
@@ -79,7 +85,7 @@ class ConfigFragment(
         val timezoneField = view.findViewById<TextView>(R.id.timezone)
         val updateTimestampButton = view.findViewById<Button>(R.id.writeTimestamp)
         updateTimestampButton.setOnClickListener {
-            onUpdateTimestamp(timezoneField.text.toString())
+            viewModel.onUpdateTimestamp?.invoke(timezoneField.text.toString())
         }
 
         passwordField = view.findViewById(R.id.password)
@@ -97,12 +103,12 @@ class ConfigFragment(
 
                 val gateway = Gateway(mqttServer, port, port, mqttServer)
                 val keyConfig = KeyConfig(userId, key, gateway)
-                onConfirmMqtt(keyConfig)
+                viewModel.onConfirmMqtt?.invoke(keyConfig)
             }
         }
 
         searchWifiButton.setOnClickListener {
-            onRefresh()
+            viewModel.onRefresh?.invoke()
         }
 
         userIdField.addTextChangedListener {
@@ -113,23 +119,22 @@ class ConfigFragment(
             updateMQTTPassword()
         }
 
+        viewModel.deviceInfo.observe(viewLifecycleOwner) {
+            wifiConfirmButton.isEnabled = true
+            mqttConfirmButton.isEnabled = true
+
+            mqttServerField.text = it?.mqtt
+            portField.text = it?.port.toString()
+            userIdField.text = it?.userId
+
+            updateMQTTPassword()
+        }
+
         super.onViewCreated(view, savedInstanceState)
     }
 
-    fun setDeviceInfo(deviceInfo: DeviceInfo) {
-        this.deviceInfo = deviceInfo
-        wifiConfirmButton.isEnabled = true
-        mqttConfirmButton.isEnabled = true
-
-        mqttServerField.text = deviceInfo.mqtt
-        portField.text = deviceInfo.port.toString()
-        userIdField.text = deviceInfo.userId
-
-        updateMQTTPassword()
-    }
-
     private fun updateMQTTPassword() {
-        val mac = deviceInfo?.mac ?: return
+        val mac = viewModel.deviceInfo.value?.mac ?: return
         val key = keyField.text.toString()
         val userId = userIdField.text.toString()
 
@@ -140,8 +145,8 @@ class ConfigFragment(
         passwordField.text = "${userId}_${bytes2hex(digest)}"
     }
 
-    fun setWifiNetworks(wifiNetworks: List<Wifi>) {
-        this.wifiNetworks = wifiNetworks
+    private fun setWifiNetworks(wifiNetworks: List<Wifi>) {
+        //viewModel.wifiNetworks = wifiNetworks
         wifiSelection.setSimpleItems(wifiNetworks.map { it.ssid + " (${it.bssid})" }.toTypedArray())
         if (wifiNetworks.isNotEmpty()) {
             wifiSelection.setText(wifiSelection.adapter.getItem(0).toString(), false)

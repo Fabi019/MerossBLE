@@ -22,7 +22,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="8dp"
                 android:layout_marginEnd="8dp"
-                android:text="Start the search by clicking on the &quot;Search&quot; button below. Make sure that you have bluetooth enabled and your target device is plugged in and in pairing mode. The lights on the device should be blinking green and orange." />
+                android:text="Start the search by swiping from the top. Make sure that you have bluetooth enabled and your target device is plugged in and in pairing mode. The lights on the device should be blinking green and orange." />
 
             <androidx.fragment.app.FragmentContainerView
                 android:id="@+id/deviceInfoCard"

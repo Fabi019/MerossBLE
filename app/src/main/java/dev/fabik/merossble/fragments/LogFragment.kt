@@ -12,10 +12,10 @@ import dev.fabik.merossble.R
 class LogFragment : Fragment() {
 
     companion object {
+        private var buffer = StringBuffer()
         const val TAG = "LogFragment"
     }
 
-    private var buffer = StringBuffer()
     private lateinit var logTextView: TextView
 
     override fun onCreateView(
@@ -31,7 +31,6 @@ class LogFragment : Fragment() {
 
         if (buffer.isNotEmpty()) {
             log(buffer.toString())
-            buffer = StringBuffer()
         }
 
         super.onViewCreated(view, savedInstanceState)
@@ -44,8 +43,8 @@ class LogFragment : Fragment() {
             }
         }.onFailure {
             Log.e(TAG, "Failed to log message: ${it.message}")
-            buffer.append("$message\n")
         }
+        buffer.append("$message\n")
     }
 
 }

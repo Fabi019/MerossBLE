@@ -17,6 +17,7 @@ import android.content.Context
 import android.os.Build
 import android.os.ParcelUuid
 import android.util.Log
+import androidx.fragment.app.FragmentActivity
 import dev.fabik.merossble.fragments.LogFragment
 import dev.fabik.merossble.protocol.Packet
 import dev.fabik.merossble.protocol.*
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors
 class BleManager(
     private val context: Context,
     private val bleCallback: BleCallback,
-    private val logFragment: LogFragment
+    private var logFragment: LogFragment? = null
 ) {
 
     companion object {
@@ -287,7 +288,7 @@ class BleManager(
     }
 
     fun disconnect() {
-        logFragment.log("Disconnecting...")
+        log("Disconnecting...")
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
@@ -300,8 +301,13 @@ class BleManager(
 
     fun log(message: String) {
         Log.d(TAG, message)
-        (context as Activity).runOnUiThread {
-            logFragment.log(message)
+        if (logFragment == null) {
+            (context as FragmentActivity).supportFragmentManager.findFragmentByTag("f1")?.let {
+                logFragment = it as LogFragment
+                logFragment?.log(message)
+            }
+        } else {
+            logFragment?.log(message)
         }
     }
 }

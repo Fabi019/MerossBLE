@@ -6,12 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import dev.fabik.merossble.R
+import dev.fabik.merossble.model.ConfigViewModel
 import dev.fabik.merossble.protocol.payloads.DeviceInfo
 
 class DeviceInfoFragment(
-    private val deviceInfo: DeviceInfo? = null,
-    private val onDataLoad: (() -> Unit)? = null
+/*    private val deviceInfo: DeviceInfo? = null,
+    private val onDataLoad: (() -> Unit)? = null*/
 ) : Fragment() {
 
     private lateinit var typeTextView: TextView
@@ -24,6 +26,8 @@ class DeviceInfoFragment(
     private lateinit var uuidTextView: TextView
 
     private lateinit var readButton: TextView
+
+    private val viewModel: ConfigViewModel by viewModels({requireParentFragment()})
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -44,19 +48,22 @@ class DeviceInfoFragment(
         uuidTextView = view.findViewById(R.id.uuid)
         readButton = view.findViewById(R.id.readButton)
 
-        onDataLoad?.let { onDataLoad ->
+        viewModel.onDataLoad?.let { onDataLoad ->
             readButton.visibility = View.VISIBLE
             readButton.setOnClickListener {
                 onDataLoad()
             }
         }
 
-        setDeviceInfo(deviceInfo)
+        viewModel.deviceInfo.observe(viewLifecycleOwner) {
+            setDeviceInfo(it)
+        }
+        setDeviceInfo(viewModel.deviceInfo.value)
 
         super.onViewCreated(view, savedInstanceState)
     }
 
-    fun setDeviceInfo(deviceInfo: DeviceInfo?) {
+    private fun setDeviceInfo(deviceInfo: DeviceInfo?) {
         deviceInfo?.let {
             typeTextView.text = it.type
             versionTextView.text = it.version
