@@ -1,38 +1,26 @@
 package dev.fabik.merossble.fragments
 
 import android.os.Bundle
-import android.util.Base64
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ListView
 import android.widget.TextView
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import dev.fabik.merossble.R
 import dev.fabik.merossble.model.ConfigViewModel
-import dev.fabik.merossble.protocol.Packet
 import dev.fabik.merossble.protocol.bytes2hex
 import dev.fabik.merossble.protocol.calculateWifiXPassword
-import dev.fabik.merossble.protocol.payloads.DeviceInfo
 import dev.fabik.merossble.protocol.payloads.Gateway
 import dev.fabik.merossble.protocol.payloads.KeyConfig
 import dev.fabik.merossble.protocol.payloads.Wifi
 import java.security.MessageDigest
 
-class ConfigFragment(
-/*    private var wifiNetworks: List<Wifi> = emptyList(),
-    private val onRefresh: () -> Unit,
-    private val onUpdateTimestamp: (String) -> Unit, // timezone
-    private val onConfirmMqtt: (KeyConfig) -> Unit, // mqtt server, port, userId, key
-    private val onConfirmWifi: (Wifi, String) -> Unit // ssid, password*/
-) : Fragment() {
+class ConfigFragment : Fragment() {
 
     private lateinit var wifiSelection: MaterialAutoCompleteTextView
     private lateinit var passwordInput: TextInputEditText
@@ -46,7 +34,7 @@ class ConfigFragment(
     private lateinit var passwordField: TextView
     private lateinit var mqttConfirmButton: Button
 
-    private val viewModel: ConfigViewModel by viewModels({requireParentFragment()})
+    private val viewModel: ConfigViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -146,7 +134,6 @@ class ConfigFragment(
     }
 
     private fun setWifiNetworks(wifiNetworks: List<Wifi>) {
-        //viewModel.wifiNetworks = wifiNetworks
         wifiSelection.setSimpleItems(wifiNetworks.map { it.ssid + " (${it.bssid})" }.toTypedArray())
         if (wifiNetworks.isNotEmpty()) {
             wifiSelection.setText(wifiSelection.adapter.getItem(0).toString(), false)

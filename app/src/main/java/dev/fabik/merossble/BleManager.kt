@@ -28,7 +28,6 @@ import java.util.concurrent.Executors
 class BleManager(
     private val context: Context,
     private val bleCallback: BleCallback,
-    private var logFragment: LogFragment? = null
 ) {
 
     companion object {
@@ -44,6 +43,8 @@ class BleManager(
     private var bluetoothGatt: BluetoothGatt? = null
     private var readCharacteristic: BluetoothGattCharacteristic? = null
     private var writeCharacteristic: BluetoothGattCharacteristic? = null
+
+    private var logFragment: LogFragment? = null
 
     private var maxPacketSize = 20
 

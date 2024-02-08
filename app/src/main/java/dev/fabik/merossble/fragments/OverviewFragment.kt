@@ -138,28 +138,7 @@ class OverviewFragment : Fragment() {
 
             if (header.namespace == "Appliance.System.All") {
                 viewModel.deviceInfo.postValue(payload.toDeviceInfo())
-                /*viewModel.deviceInfo = payload.toDeviceInfo().also { deviceInfo ->
-                    childFragmentManager.findFragmentById(R.id.deviceInfoCard)?.let {
-                        requireActivity().runOnUiThread {
-                            (it as DeviceInfoFragment).setDeviceInfo(deviceInfo)
-                        }
-                    }
-
-                    childFragmentManager.findFragmentById(R.id.wifiConfigCard)?.let {
-                        requireActivity().runOnUiThread {
-                            (it as ConfigFragment).setDeviceInfo(deviceInfo)
-                        }
-                    }
-                }*/
             } else if (header.namespace == "Appliance.Config.WifiList") {
-                /*viewModel.wifiNetworks = payload.toWifiList().also { wifiNetworks ->
-                    childFragmentManager.findFragmentById(R.id.wifiConfigCard)?.let {
-                        requireActivity().runOnUiThread {
-                            (it as ConfigFragment).setWifiNetworks(wifiNetworks)
-                        }
-                    }
-                }*/
-
                 viewModel.wifiNetworks.postValue(payload.toWifiList())
             }
 

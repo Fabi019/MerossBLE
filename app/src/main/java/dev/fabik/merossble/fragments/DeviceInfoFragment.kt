@@ -11,10 +11,7 @@ import dev.fabik.merossble.R
 import dev.fabik.merossble.model.ConfigViewModel
 import dev.fabik.merossble.protocol.payloads.DeviceInfo
 
-class DeviceInfoFragment(
-/*    private val deviceInfo: DeviceInfo? = null,
-    private val onDataLoad: (() -> Unit)? = null*/
-) : Fragment() {
+class DeviceInfoFragment : Fragment() {
 
     private lateinit var typeTextView: TextView
     private lateinit var versionTextView: TextView
