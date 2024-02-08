@@ -34,9 +34,7 @@ configuration over BLE:
 
 ## Screenshots
 
-<img alt="Main Screen" src="images/main.png" width="200px" />
-<img alt="Main Screen" src="images/main2.png" width="200px" />
-<img alt="Log Screen" src="images/log.png" width="200px" />
+<img alt="Main Screen" src="images/main.png" width="200px" /><img alt="Main Screen" src="images/main2.png" width="200px" /><img alt="Log Screen" src="images/log.png" width="200px" />
 
 ## Protocol
 
