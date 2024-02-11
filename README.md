@@ -31,6 +31,7 @@ configuration over BLE:
 4. Once a device is found it will automatically connect to it
 5. You can now configure the device
 6. After you wrote the WIFI section, the device will connect to the WIFI and disconnect from BLE
+7. Add your device in homeassistant (using the device ip and your chosen key)
 
 ## Screenshots
 
@@ -66,3 +67,17 @@ The packet structure is as follows:
 
 The messages itself are essentially the same as in the HTTP API. Once the device is connected to
 the wifi, a configuration with other Meross tools is also possible.
+
+## License
+
+Copyright (C) 2024 Fabi019
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
