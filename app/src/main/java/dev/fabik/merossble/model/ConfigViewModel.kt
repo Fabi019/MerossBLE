@@ -12,7 +12,6 @@ class ConfigViewModel : ViewModel() {
     var deviceInfo: MutableLiveData<DeviceInfo?> = MutableLiveData()
 
     var onRefresh: (() -> Unit)? = null
-    var onUpdateTimestamp: ((String) -> Unit)? = null // timezone
     var onConfirmMqtt: ((KeyConfig) -> Unit)? = null // mqtt server, port, userId, key
     var onConfirmWifi: ((Wifi, String) -> Unit)? = null // ssid, password
 
