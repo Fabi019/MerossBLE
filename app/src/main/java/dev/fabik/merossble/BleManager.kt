@@ -100,40 +100,32 @@ class BleManager(
             super.onCharacteristicRead(gatt, characteristic, value, status)
         }
 
+        @Deprecated("Deprecated in Java")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                characteristic?.value?.let {
+                    if (characteristic.uuid == UUID.fromString(READ_CHARACTERISTIC_UUID)) {
+                        handleData(it)
+                    } else {
+                        log("Received data on unknown characteristic: ${characteristic.uuid}")
+                    }
+                }
+            }
+            super.onCharacteristicChanged(gatt, characteristic)
+        }
+
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            if (value.size >= 4 && value[0] == 0x55.toByte() && value[1] == 0xAA.toByte()) {
-                log("Received start of packet...")
-
-                val packetSizeHI = value[2].toInt()
-                val packetSizeLO = value[3].toInt()
-
-                val packetSize = ((packetSizeHI and 0xFF) shl 8) + (packetSizeLO and 0xFF)
-                log("Total packet size: $packetSize (${bytes2hex(value.sliceArray(2 until 4))})")
-
-                receiveBuffer = ByteArray(packetSize + 6)
-                System.arraycopy(value, 0, receiveBuffer, 0, value.size - 4) // strip length and magic
-                writeIndex = value.size - 4
-            } else if (value.size >= 2 && value[value.size - 2] == 0xAA.toByte() && value[value.size - 1] == 0x55.toByte()) {
-                log("Received end of packet")
-
-                System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size - 2)
-                writeIndex = 0
-
-                val crc = receiveBuffer.sliceArray(receiveBuffer.size - 6 until receiveBuffer.size - 2)
-                log("Checksum (CRC32) is: ${bytes2hex(crc)} [not validated]")
-
-                val json = bytes2ascii(receiveBuffer.sliceArray(4 until receiveBuffer.size - 6))
-                log("Received: $json")
-                bleCallback.onPacketReceived(json)
+            if (characteristic.uuid == UUID.fromString(READ_CHARACTERISTIC_UUID)) {
+                handleData(value)
             } else {
-                log("Received data chunk (length: ${value.size})")
-
-                System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size)
-                writeIndex += value.size
+                log("Received data on unknown characteristic: ${characteristic.uuid}")
             }
 
             super.onCharacteristicChanged(gatt, characteristic, value)
@@ -189,7 +181,9 @@ class BleManager(
 
             log("Enabling notifications...")
 
-            gatt.setCharacteristicNotification(readCharacteristic, true)
+            val r = gatt.setCharacteristicNotification(readCharacteristic, true)
+            log("setCharacteristicNotification returned $r")
+
             readCharacteristic?.getDescriptor(
                 UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
             )?.let {
@@ -198,15 +192,55 @@ class BleManager(
                         gatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
                     log("WriteDescriptor returned $s")
                 } else {
-                    it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    val s = gatt.writeDescriptor(it)
-                    log("legacy WriteDescriptor returned $s")
+                it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                val s = gatt.writeDescriptor(it)
+                log("legacy WriteDescriptor returned $s")
                 }
             }
 
             bleCallback.onConnectionStateChanged(99)
 
             super.onServicesDiscovered(gatt, status)
+        }
+    }
+
+    fun handleData(value: ByteArray) {
+        if (value.size >= 4 && value[0] == 0x55.toByte() && value[1] == 0xAA.toByte()) {
+            log("Received start of packet...")
+
+            val packetSizeHI = value[2].toInt()
+            val packetSizeLO = value[3].toInt()
+
+            val packetSize = ((packetSizeHI and 0xFF) shl 8) + (packetSizeLO and 0xFF)
+            log("Total packet size: $packetSize (${bytes2hex(value.sliceArray(2 until 4))})")
+
+            receiveBuffer = ByteArray(packetSize + 6)
+            System.arraycopy(
+                value,
+                0,
+                receiveBuffer,
+                0,
+                value.size - 4
+            ) // strip length and magic
+            writeIndex = value.size - 4
+        } else if (value.size >= 2 && value[value.size - 2] == 0xAA.toByte() && value[value.size - 1] == 0x55.toByte()) {
+            log("Received end of packet")
+
+            System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size - 2)
+            writeIndex = 0
+
+            val crc =
+                receiveBuffer.sliceArray(receiveBuffer.size - 6 until receiveBuffer.size - 2)
+            log("Checksum (CRC32) is: ${bytes2hex(crc)} [not validated]")
+
+            val json = bytes2ascii(receiveBuffer.sliceArray(4 until receiveBuffer.size - 6))
+            log("Received: $json")
+            bleCallback.onPacketReceived(json)
+        } else {
+            log("Received data chunk (length: ${value.size})")
+
+            System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size)
+            writeIndex += value.size
         }
     }
 
@@ -272,17 +306,16 @@ class BleManager(
     private fun writeData(data: ByteArray) {
         log("Sending data (length: ${data.size})...")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            writeCharacteristic?.let {
+        writeCharacteristic?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 bluetoothGatt?.writeCharacteristic(
                     it,
                     data,
                     BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                 )
-            }
-        } else {
-            writeCharacteristic?.let {
+            } else {
                 it.value = data
+                it.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                 bluetoothGatt?.writeCharacteristic(it)
             }
         }
