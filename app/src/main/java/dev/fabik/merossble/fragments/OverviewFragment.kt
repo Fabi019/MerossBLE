@@ -49,6 +49,7 @@ class OverviewFragment : Fragment() {
 
         swipeRefreshLayout.setOnRefreshListener {
             log("Requested refresh")
+            mainViewModel.disconnect()
             mainViewModel.bleManager?.scan()
         }
 
