@@ -61,17 +61,22 @@ fun calculateWifiXPassword(
     uuid: String,
     macAddress: String
 ): String {
-    val md5 = MessageDigest.getInstance("MD5")
-    md5.update((type + uuid + macAddress).toByteArray())
+    val md5 = MessageDigest.getInstance("MD5").apply {
+        update((type + uuid + macAddress).toByteArray())
+    }
     val key = bytes2hex(md5.digest())
 
     val cipher = Cipher.getInstance("AES/CBC/PKCS7Padding")
-    val secretKeySpec = SecretKeySpec(key.toByteArray(), "AES-256")
+    val secretKeySpec = SecretKeySpec(key.toByteArray(), "AES")
     val ivParameterSpec = IvParameterSpec("0000000000000000".toByteArray())
 
     cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec)
-    val padded = password.padEnd(16, '\u0000')
+
+    // pad to multiples of 16
+    val padding = (16 - (password.length % 16)) + password.length
+    val padded = password.padEnd(padding, '\u0000')
+
     val encrypted = cipher.doFinal(padded.toByteArray())
 
-    return Base64.encodeToString(encrypted, Base64.DEFAULT).replace("\n", "")
+    return Base64.encodeToString(encrypted, Base64.NO_WRAP)
 }

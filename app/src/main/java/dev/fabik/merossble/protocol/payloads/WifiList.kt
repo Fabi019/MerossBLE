@@ -24,7 +24,7 @@ fun JSONObject.toWifiList(): List<Wifi> {
 }
 
 fun JSONObject.toWifi() = Wifi(
-    ssid = Base64.decode(getString("ssid"), Base64.DEFAULT).toString(Charsets.UTF_8),
+    ssid = Base64.decode(getString("ssid"), Base64.NO_WRAP).toString(Charsets.UTF_8),
     bssid = getString("bssid"),
     channel = getInt("channel"),
     signal = getInt("signal"),
@@ -38,5 +38,5 @@ fun Wifi.toJSONObject(password: String) = JSONObject().apply {
     put("encryption", encryption)
     put("bssid", bssid)
     put("channel", channel)
-    put("ssid", Base64.encodeToString(ssid.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
+    put("ssid", Base64.encodeToString(ssid.toByteArray(Charsets.UTF_8), Base64.NO_WRAP))
 }

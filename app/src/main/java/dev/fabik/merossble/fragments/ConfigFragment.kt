@@ -79,7 +79,9 @@ class ConfigFragment : Fragment() {
 
         mqttConfirmButton.setOnClickListener {
             val mqttServer = mqttServerField.text.toString()
-            runCatching { portField.text.toString().toInt() }.getOrNull()?.let { port ->
+            runCatching {
+                portField.text.toString().toInt()
+            }.getOrNull()?.let { port ->
                 val userId = userIdField.text.toString()
                 val key = keyField.text.toString()
 
@@ -102,14 +104,19 @@ class ConfigFragment : Fragment() {
         }
 
         viewModel.deviceInfo.observe(viewLifecycleOwner) {
-            wifiConfirmButton.isEnabled = true
-            mqttConfirmButton.isEnabled = true
+            it?.let {
+                wifiConfirmButton.isEnabled = true
+                mqttConfirmButton.isEnabled = true
 
-            mqttServerField.text = it?.mqtt
-            portField.text = it?.port.toString()
-            userIdField.text = it?.userId
+                mqttServerField.text = it.mqtt
+                portField.text = it.port.toString()
+                userIdField.text = it.userId
 
-            updateMQTTPassword()
+                updateMQTTPassword()
+            } ?: run {
+                wifiConfirmButton.isEnabled = false
+                mqttConfirmButton.isEnabled = false
+            }
         }
 
         super.onViewCreated(view, savedInstanceState)

@@ -30,7 +30,6 @@ fun JSONObject.toDeviceInfo(): DeviceInfo {
     val port = firmware.getInt("port")
     val userId = firmware.getString("userId")
 
-
     return DeviceInfo(
         type,
         version,
