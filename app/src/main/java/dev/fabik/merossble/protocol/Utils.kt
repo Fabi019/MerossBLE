@@ -1,6 +1,7 @@
 package dev.fabik.merossble.protocol
 
 import android.util.Base64
+import android.util.Log
 import java.security.MessageDigest
 import java.util.zip.CRC32
 import javax.crypto.Cipher
@@ -20,22 +21,17 @@ fun int2bytes(i: Int): ByteArray {
     )
 }
 
-fun string2bytes(string: String): ByteArray {
-    check(string.length % 2 == 0) { "Must have an even length" }
-    return string.chunked(2)
-        .map { it.toInt(16).toByte() }
-        .toByteArray()
+fun insertAt(array: ByteArray, value: ByteArray, index: Int, start: Int = 0, length: Int = value.size) {
+    runCatching {
+        System.arraycopy(value, start, array, index, length)
+    }.onFailure {
+        Log.e("insertAt", "Failed to insert value at index $index", it)
+    }
 }
 
-fun insertAt(array: ByteArray, value: ByteArray, index: Int) {
-    System.arraycopy(value, 0, array, index, value.size)
-}
-
-fun crc32(data: ByteArray): Int {
-    val crc32 = CRC32()
-    crc32.update(data)
-    return crc32.value.toInt()
-}
+fun crc32(data: ByteArray) = CRC32().apply {
+    update(data)
+}.value
 
 fun bytes2hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(it) }
 
