@@ -107,11 +107,7 @@ class BleManager(
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                 characteristic?.value?.let {
-                    if (characteristic.uuid == UUID.fromString(READ_CHARACTERISTIC_UUID)) {
-                        handleData(it)
-                    } else {
-                        log("Received data on unknown characteristic: ${characteristic.uuid}")
-                    }
+                    handleData(characteristic, it)
                 }
             }
             super.onCharacteristicChanged(gatt, characteristic)
@@ -122,12 +118,7 @@ class BleManager(
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            if (characteristic.uuid == UUID.fromString(READ_CHARACTERISTIC_UUID)) {
-                handleData(value)
-            } else {
-                log("Received data on unknown characteristic: ${characteristic.uuid}")
-            }
-
+            handleData(characteristic, value)
             super.onCharacteristicChanged(gatt, characteristic, value)
         }
 
@@ -192,9 +183,9 @@ class BleManager(
                         gatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
                     log("WriteDescriptor returned $s")
                 } else {
-                it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                val s = gatt.writeDescriptor(it)
-                log("legacy WriteDescriptor returned $s")
+                    it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    val s = gatt.writeDescriptor(it)
+                    log("legacy WriteDescriptor returned $s")
                 }
             }
 
@@ -204,7 +195,12 @@ class BleManager(
         }
     }
 
-    fun handleData(value: ByteArray) {
+    fun handleData(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+        if (characteristic.uuid != UUID.fromString(READ_CHARACTERISTIC_UUID)) {
+            log("Received data on unknown characteristic: ${characteristic.uuid}")
+            return
+        }
+
         if (value.size >= 4 && value[0] == 0x55.toByte() && value[1] == 0xAA.toByte()) {
             log("Received start of packet...")
 
@@ -214,32 +210,35 @@ class BleManager(
             val packetSize = ((packetSizeHI and 0xFF) shl 8) + (packetSizeLO and 0xFF)
             log("Total packet size: $packetSize (${bytes2hex(value.sliceArray(2 until 4))})")
 
-            receiveBuffer = ByteArray(packetSize + 6)
-            System.arraycopy(
-                value,
-                0,
-                receiveBuffer,
-                0,
-                value.size - 4
-            ) // strip length and magic
+            receiveBuffer = ByteArray(packetSize + 4) // add 4 bytes for crc at the end
+            insertAt(receiveBuffer, value, 0, 4, value.size - 4) // strip length and magic
             writeIndex = value.size - 4
         } else if (value.size >= 2 && value[value.size - 2] == 0xAA.toByte() && value[value.size - 1] == 0x55.toByte()) {
             log("Received end of packet")
 
-            System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size - 2)
+            insertAt(receiveBuffer, value, writeIndex, 0, value.size - 2) // strip magic
             writeIndex = 0
 
-            val crc =
-                receiveBuffer.sliceArray(receiveBuffer.size - 6 until receiveBuffer.size - 2)
-            log("Checksum (CRC32) is: ${bytes2hex(crc)} [not validated]")
+            val crc = receiveBuffer.takeLast(4).toByteArray()
+            log("Checksum (CRC32) is: ${bytes2hex(crc)}")
 
-            val json = bytes2ascii(receiveBuffer.sliceArray(4 until receiveBuffer.size - 6))
+            val data = receiveBuffer.take(receiveBuffer.size - 4).toByteArray()
+            val json = bytes2ascii(data)
+            val realCrc = int2bytes(crc32(data).toInt())
+
+            if (!realCrc.contentEquals(crc)) {
+                log("Checksum mismatch! Expected: ${bytes2hex(realCrc)}")
+            } else {
+                log("Checksum validated!")
+            }
+
             log("Received: $json")
+
             bleCallback.onPacketReceived(json)
         } else {
             log("Received data chunk (length: ${value.size})")
 
-            System.arraycopy(value, 0, receiveBuffer, writeIndex, value.size)
+            insertAt(receiveBuffer, value, writeIndex)
             writeIndex += value.size
         }
     }

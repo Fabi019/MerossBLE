@@ -16,7 +16,7 @@ class Packet(
         insertAt(data, json.toByteArray(), 4)
 
         val offset = json.length + 4
-        insertAt(data, int2bytes(crc32(json.toByteArray())), offset)
+        insertAt(data, int2bytes(crc32(json.toByteArray()).toInt()), offset)
         insertAt(data, byteArrayOf(0xAA.toByte(), 0x55.toByte()), offset + 4)
 
         return data
