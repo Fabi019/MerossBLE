@@ -19,6 +19,7 @@ import dev.fabik.merossble.protocol.payloads.Gateway
 import dev.fabik.merossble.protocol.payloads.KeyConfig
 import dev.fabik.merossble.protocol.payloads.Wifi
 import java.security.MessageDigest
+import java.util.TimeZone
 
 class ConfigFragment : Fragment() {
 
@@ -70,7 +71,10 @@ class ConfigFragment : Fragment() {
             }
         }
 
-        val timezoneField = view.findViewById<TextView>(R.id.timezone)
+        val timezoneField = view.findViewById<MaterialAutoCompleteTextView>(R.id.timezone)
+        timezoneField.setSimpleItems(TimeZone.getAvailableIDs())
+        timezoneField.setText(TimeZone.getDefault().id, false)
+
         val updateTimestampButton = view.findViewById<Button>(R.id.writeTimestamp)
         updateTimestampButton.setOnClickListener {
             viewModel.onUpdateTimestamp?.invoke(timezoneField.text.toString())
@@ -144,6 +148,7 @@ class ConfigFragment : Fragment() {
         wifiSelection.setSimpleItems(wifiNetworks.map { it.ssid + " (${it.bssid})" }.toTypedArray())
         if (wifiNetworks.isNotEmpty()) {
             wifiSelection.setText(wifiSelection.adapter.getItem(0).toString(), false)
+            // Notify the selection listener
             wifiSelection.onItemClickListener?.onItemClick(null, wifiSelection, 0, 0)
         }
     }

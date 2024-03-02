@@ -1,45 +1,80 @@
 package dev.fabik.merossble.protocol.payloads
 
+import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Calendar
+import java.util.Date
+import java.util.TimeZone
 
-val RULES = listOf(
-    intArrayOf(1698541200, 3600, 0),
-    intArrayOf(1711846800, 7200, 1),
-    intArrayOf(1729990800, 3600, 0),
-    intArrayOf(1743296400, 7200, 1),
-    intArrayOf(1761440400, 3600, 0),
-    intArrayOf(1774746000, 7200, 1),
-    intArrayOf(1792890000, 3600, 0),
-    intArrayOf(1806195600, 7200, 1),
-    intArrayOf(1824944400, 3600, 0),
-    intArrayOf(1837645200, 7200, 1),
-    intArrayOf(1856394000, 3600, 0),
-    intArrayOf(1869094800, 7200, 1),
-    intArrayOf(1887843600, 3600, 0),
-    intArrayOf(1901149200, 7200, 1),
-    intArrayOf(1919293200, 3600, 0),
-    intArrayOf(1932598800, 7200, 1),
-    intArrayOf(1950742800, 3600, 0),
-    intArrayOf(1964048400, 7200, 1),
-    intArrayOf(1982797200, 3600, 0),
-    intArrayOf(1995498000, 7200, 1)
-)
+class Time(
+    private val timezone: String,
+    private val timestamp: Long,
+) {
+    private val timeRule: List<IntArray> = calculateTimeRule()
 
-data class Time(
-    val timezone: String,
-    val timestamp: Long,
-    val timeRule: List<IntArray> = RULES
-)
+    fun toJSONObject() = JSONObject().apply {
+        put("timeRule", JSONArray(timeRule.map {
+            JSONArray().apply {
+                put(it[0])
+                put(it[1])
+                put(it[2])
+            }
+        }))
+        put("timezone", timezone)
+        put("timestamp", timestamp)
+    }
 
-fun Time.toJSONObject() = JSONObject().apply {
-    put("timeRule", JSONArray(timeRule.map {
-        JSONArray().apply {
-            put(it[0])
-            put(it[1])
-            put(it[2])
+    private fun calculateTimeRule(): List<IntArray> {
+        val timeRules = mutableListOf<IntArray>()
+
+        val tz = TimeZone.getTimeZone(timezone)
+        val calendar = Calendar.getInstance(tz)
+
+        if (tz.useDaylightTime() || tz.inDaylightTime(Date(timestamp))) {
+            repeat(20) {
+                val transitionTime = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val rules = tz.toZoneId().rules
+                    rules.nextTransition(calendar.toInstant()).instant.toEpochMilli()
+                } else {
+                    findNextDstTransition(calendar)
+                }
+
+                timeRules.add(
+                    intArrayOf(
+                        (transitionTime / 1000).toInt(),
+                        tz.getOffset(transitionTime) / 1000,
+                        if (tz.inDaylightTime(Date(transitionTime))) 1 else 0
+                    )
+                )
+
+                calendar.timeInMillis = transitionTime
+            }
+        } else {
+            timeRules.add(intArrayOf(0, tz.rawOffset / 1000, 0))
         }
-    }))
-    put("timezone", timezone)
-    put("timestamp", timestamp)
+
+        return timeRules
+    }
+
+    // Function for devices running Android lower than 8.0
+    private fun findNextDstTransition(calendar: Calendar): Long {
+        // Define the search range
+        var start = calendar.timeInMillis
+        var end = start + 365 * 24 * 60 * 60 * 1000L // One year in milliseconds
+        val current = calendar.timeZone.inDaylightTime(Date(start))
+
+        // Perform binary search
+        while (start <= end) {
+            val mid = start + (end - start) / 2
+            val isDst = calendar.timeZone.inDaylightTime(Date(mid))
+            if (isDst != current) {
+                end = mid - 1
+            } else {
+                start = mid + 1
+            }
+        }
+
+        return start
+    }
 }
