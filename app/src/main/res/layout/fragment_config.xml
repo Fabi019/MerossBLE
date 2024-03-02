@@ -41,6 +41,8 @@
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/mqttServer"
                     style="@style/Widget.Material3.TextInputEditText.OutlinedBox"
+                    android:maxLines="1"
+                    android:inputType="text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />
 
@@ -91,6 +93,8 @@
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/keyInput"
                 style="@style/Widget.Material3.TextInputEditText.OutlinedBox"
+                android:maxLines="1"
+                android:inputType="text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
@@ -113,6 +117,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="none"
+                android:maxLines="1"
                 android:textIsSelectable="true"
                 android:typeface="monospace" />
 
