@@ -17,6 +17,7 @@ import dev.fabik.merossble.model.ConfigViewModel
 import dev.fabik.merossble.model.MainViewModel
 import dev.fabik.merossble.protocol.Header
 import dev.fabik.merossble.protocol.Packet
+import dev.fabik.merossble.protocol.payloads.Time
 import dev.fabik.merossble.protocol.payloads.toDeviceInfo
 import dev.fabik.merossble.protocol.payloads.toJSONObject
 import dev.fabik.merossble.protocol.payloads.toWifiList
@@ -64,6 +65,22 @@ class OverviewFragment : Fragment() {
             mainViewModel.bleManager?.sendPacket(
                 Packet(Header(method = "GET", namespace = "Appliance.Config.WifiList"))
             )
+        }
+
+        viewModel.onUpdateTimestamp = { timezone ->
+            showWaitingDialog()
+
+            log("Setting time to: $timezone")
+            val time = Time(timezone, System.currentTimeMillis() / 1000)
+            mainViewModel.bleManager?.sendPacket(
+                Packet(
+                    Header(method = "SET", namespace = "Appliance.System.Time"),
+                    payload = JSONObject().apply {
+                        put("time", time.toJSONObject())
+                    }
+                )
+            )
+
         }
 
         viewModel.onConfirmMqtt = { keyConfig ->

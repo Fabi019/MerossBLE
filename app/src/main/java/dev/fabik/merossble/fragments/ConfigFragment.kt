@@ -70,6 +70,12 @@ class ConfigFragment : Fragment() {
             }
         }
 
+        val timezoneField = view.findViewById<TextView>(R.id.timezone)
+        val updateTimestampButton = view.findViewById<Button>(R.id.writeTimestamp)
+        updateTimestampButton.setOnClickListener {
+            viewModel.onUpdateTimestamp?.invoke(timezoneField.text.toString())
+        }
+
         passwordField = view.findViewById(R.id.password)
         userIdField = view.findViewById(R.id.userIdInput)
         keyField = view.findViewById(R.id.keyInput)
